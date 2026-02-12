@@ -9,6 +9,7 @@ import { shortenHomePath } from "../../../utils.js";
 import { normalizeSecretInput } from "../../../utils/normalize-secret-input.js";
 import { buildTokenProfileId, validateAnthropicSetupToken } from "../../auth-token.js";
 import { applyGoogleGeminiModelDefault } from "../../google-gemini-model-default.js";
+import { applyAmazonNovaConfig, setAmazonNovaApiKey } from "../../onboard-auth.js";
 import {
   applyAuthProfileConfig,
   applyCloudflareAiGatewayConfig,
@@ -690,6 +691,29 @@ export async function applyNonInteractiveAuthChoice(params: {
       runtime.exit(1);
       return null;
     }
+  }
+
+  if (authChoice === "amazon-nova-api-key") {
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "amazon-nova",
+      cfg: baseConfig,
+      flagValue: opts.novaApiKey,
+      flagName: "--nova-api-key",
+      envVar: "NOVA_API_KEY",
+      runtime,
+    });
+    if (!resolved) {
+      return null;
+    }
+    if (resolved.source !== "profile") {
+      await setAmazonNovaApiKey(resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "amazon-nova:default",
+      provider: "amazon-nova",
+      mode: "api_key",
+    });
+    return applyAmazonNovaConfig(nextConfig);
   }
 
   if (

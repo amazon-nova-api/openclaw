@@ -121,6 +121,7 @@ export const OPENROUTER_DEFAULT_MODEL_REF = "openrouter/auto";
 export const TOGETHER_DEFAULT_MODEL_REF = "together/moonshotai/Kimi-K2.5";
 export const LITELLM_DEFAULT_MODEL_REF = "litellm/claude-opus-4-6";
 export const VERCEL_AI_GATEWAY_DEFAULT_MODEL_REF = "vercel-ai-gateway/anthropic/claude-opus-4.6";
+export const AMAZON_NOVA_DEFAULT_MODEL_REF = "amazon-nova/nova-2-lite-v1";
 
 export async function setZaiApiKey(key: string, agentDir?: string) {
   // Write to resolved agent dir so gateway finds credentials on startup.
@@ -249,6 +250,18 @@ export function setXaiApiKey(key: string, agentDir?: string) {
     credential: {
       type: "api_key",
       provider: "xai",
+      key,
+    },
+    agentDir: resolveAuthAgentDir(agentDir),
+  });
+}
+
+export async function setAmazonNovaApiKey(key: string, agentDir?: string) {
+  upsertAuthProfile({
+    profileId: "amazon-nova:default",
+    credential: {
+      type: "api_key",
+      provider: "amazon-nova",
       key,
     },
     agentDir: resolveAuthAgentDir(agentDir),
