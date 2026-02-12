@@ -195,7 +195,9 @@ export async function monitorNovaProvider(opts: MonitorNovaOpts): Promise<void> 
         peer: { kind: "user", id: msg.userId },
       });
 
-      const storePath = core.config.resolveStorePath(route.agentId);
+      const storePath = core.channel.session.resolveStorePath(cfg.session?.store, {
+        agentId: route.agentId,
+      });
 
       const ctxPayload = core.channel.reply.finalizeInboundContext({
         Body: msg.text,
