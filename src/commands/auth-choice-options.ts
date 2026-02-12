@@ -10,6 +10,7 @@ export type AuthChoiceOption = {
   label: string;
   hint?: string;
 };
+
 export type AuthChoiceGroup = {
   value: AuthChoiceGroupId;
   label: string;
@@ -118,6 +119,12 @@ const AUTH_CHOICE_GROUP_DEFS: {
     label: "Qianfan",
     hint: "API key",
     choices: ["qianfan-api-key"],
+  },
+  {
+    value: "amazon-nova",
+    label: "Nova",
+    hint: "nova.amazon.com",
+    choices: ["amazon-nova-api-key"],
   },
   {
     value: "copilot",
