@@ -6,12 +6,13 @@ import {
   type RuntimeEnv,
 } from "openclaw/plugin-sdk";
 import WebSocket from "ws";
-import type { NovaConfig } from "./types.js";
+import { getHyperionRuntime, hasHyperionRuntime } from "../../hyperion/src/globals.js";
 import { setActiveNovaConnection } from "./connection.js";
 import { resolveNovaCredentials } from "./credentials.js";
 import { parseNovaInboundMessage } from "./inbound.js";
 import { getNovaRuntime } from "./runtime.js";
 import { sendNovaMessage } from "./send.js";
+import type { NovaConfig } from "./types.js";
 
 export type MonitorNovaOpts = {
   cfg: OpenClawConfig;
@@ -158,7 +159,7 @@ export async function monitorNovaProvider(opts: MonitorNovaOpts): Promise<void> 
 
     async function handleInboundMessage(
       raw: string,
-      msgCfg: OpenClawConfig,
+      gatewayCfg: OpenClawConfig,
       msgRuntime: RuntimeEnv,
     ): Promise<void> {
       const msg = parseNovaInboundMessage(raw);
@@ -167,21 +168,37 @@ export async function monitorNovaProvider(opts: MonitorNovaOpts): Promise<void> 
         return;
       }
 
-      const dmPolicy = novaCfg?.dmPolicy ?? "allowlist";
-      const allowFrom = (novaCfg?.allowFrom ?? []).map((entry) =>
-        String(entry).trim().toLowerCase(),
-      );
-
-      // Enforce allowlist policy — an empty allowlist blocks everyone
-      if (dmPolicy === "allowlist" && !allowFrom.includes("*")) {
-        if (allowFrom.length === 0) {
-          logger.info(`nova: message from ${msg.userId} dropped (allowlist is empty)`);
+      // In multi-tenant mode (Hyperion runtime available), load per-tenant config.
+      // The tenant user_id is the msg.userId from the authenticated WebSocket.
+      // HWS has already authenticated the user, so no allowlist check needed.
+      let msgCfg: OpenClawConfig;
+      if (hasHyperionRuntime()) {
+        try {
+          const hyperion = getHyperionRuntime();
+          msgCfg = await hyperion.configLoader.loadTenantConfig(msg.userId);
+        } catch (err) {
+          logger.error(`nova: failed to load tenant config for ${msg.userId}: ${String(err)}`);
           return;
         }
-        const senderId = msg.userId.trim().toLowerCase();
-        if (!allowFrom.includes(senderId)) {
-          logger.info(`nova: message from ${msg.userId} dropped (not in allowlist)`);
-          return;
+      } else {
+        // Single-tenant fallback: use the static gateway config with allowlist check.
+        msgCfg = gatewayCfg;
+
+        const dmPolicy = novaCfg?.dmPolicy ?? "allowlist";
+        const allowFrom = (novaCfg?.allowFrom ?? []).map((entry) =>
+          String(entry).trim().toLowerCase(),
+        );
+
+        if (dmPolicy === "allowlist" && !allowFrom.includes("*")) {
+          if (allowFrom.length === 0) {
+            logger.info(`nova: message from ${msg.userId} dropped (allowlist is empty)`);
+            return;
+          }
+          const senderId = msg.userId.trim().toLowerCase();
+          if (!allowFrom.includes(senderId)) {
+            logger.info(`nova: message from ${msg.userId} dropped (not in allowlist)`);
+            return;
+          }
         }
       }
 
@@ -195,7 +212,7 @@ export async function monitorNovaProvider(opts: MonitorNovaOpts): Promise<void> 
         peer: { kind: "user", id: msg.userId },
       });
 
-      const storePath = core.channel.session.resolveStorePath(cfg.session?.store, {
+      const storePath = core.channel.session.resolveStorePath(msgCfg.session?.store, {
         agentId: route.agentId,
       });
 
