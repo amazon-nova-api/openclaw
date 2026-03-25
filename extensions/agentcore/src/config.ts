@@ -60,7 +60,7 @@ export async function loadAgentCoreConfig(
   }
 
   let memoryNamespacePrefix = DEFAULT_MEMORY_NAMESPACE_PREFIX;
-  let memoryId: string | undefined;
+  let memoryId: string | undefined; // Populated from SSM memory-config JSON below; stays undefined if not configured.
   try {
     const parsed = JSON.parse(memoryConfigParam ?? "{}");
     if (parsed && typeof parsed.memoryNamespacePrefix === "string") {
